@@ -228,7 +228,7 @@ def main():
         st.write(
                 f"**Overall Accuracy for {len(texts)} Samples:** \n\n"
                 f"{accuracy:.2%}"
-            )
+        )
 
         st.dataframe(rows)
 
