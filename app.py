@@ -27,16 +27,16 @@ SECRET PHRASE (must appear on the app page): ISOM5160-HW2-SMS
 # =============================================================================
 # STUDENT ANSWERS BLOCK (fill in; keep this in the SAME .py file)
 # =============================================================================
-# Student ID: YOUR_STUDENT_ID
+# Student ID: 20104101
 #
 # GenAI acknowledgment (required if you used GenAI; otherwise write "None"):
-#   - Tools used: YOUR_ANSWER
-#   - How you used them: YOUR_ANSWER
+#   - Tools used: None
+#   - How you used them: None
 #
 # Q1. Who is the primary business user of this app?
 #     (one short sentence; e.g., an employee or a security analyst reviewing
 #      inbound SMS for spam or scam-like messages)
-#   YOUR_ANSWER:
+#   YOUR_ANSWER: Security Analyst for reviewing the suspicious SMS msg reported from end users 
 #
 # Q2. Look at the accuracy from your 100-sample test. Is accuracy enough
 #     for a business to rely on this app, and why or why not?
@@ -44,8 +44,14 @@ SECRET PHRASE (must appear on the app page): ISOM5160-HW2-SMS
 #     YOUR app run. Comment on the cost of a false positive (blocking a
 #     legitimate SMS, such as a bank or one-time code message) versus a
 #     false negative (missing a spam or scam-like message).
-#   YOUR_ANSWER:
-#
+#   YOUR_ANSWER: Per running with sample test, it shows around 99% accuracy on testing data
+#   No, It's still not enough to justify on actual business use due to 
+#       - Insufficent dataset (at least 5000 samples)  
+#       - No further finetuning completed
+#   False positive could still be reviewed and finetuned but false negative would be worse to  
+#   miss outthe actual SPAM that triggers higher impacts (e.g., data loss/compromised) 
+#   in terms of financial cost and reputation to an organisations. 
+#   
 # =============================================================================
 
 import streamlit as st
@@ -59,7 +65,7 @@ N_TEST = 100
 SPLIT_SEED = 42
 
 # Course identity (required)
-STUDENT_ID = "YOUR_STUDENT_ID"  # STUDENT: replace with your real student ID
+STUDENT_ID = "20104101"  # STUDENT: replace with your real student ID
 COURSE_SECRET = "ISOM5160-HW2-SMS"  # do not change
 
 
@@ -111,21 +117,29 @@ def classify_text(classifier, text):
     """Return (display_label, confidence) for one SMS string."""
     # STUDENT: call the pipeline on this one text, map the raw label with
     # map_label(...), and return the display label and the confidence score.
-    display_label = None  # STUDENT: replace this
-    score = None  # STUDENT: replace this
+    display_label = map_label(classifier(text)[0]["label"])  # STUDENT: replace this
+    score = float(classifier(text)[0]["score"])  # STUDENT: replace this
     return display_label, score
 
 
 def compute_accuracy(pred_labels, true_labels):
     """Return accuracy as a float between 0 and 1."""
     # STUDENT: accuracy = (number of matches) / (number of samples).
-    accuracy = None  # STUDENT: replace this
+    matches = 0
+    for predValue, trueValue in zip(pred_labels, true_labels):
+            if predValue == trueValue:
+                matches += 1
+    accuracy = float(matches / len(true_labels))  # STUDENT: replace this
     return accuracy
 
 
 def main():
     st.title("ISOM5160")
-    st.write("Homework 2 — SMS Spam / Smishing Alert")
+    st.write(
+        f"Homework 2 — SMS Spam / Smishing Alert\n\n"
+        f"**Student ID:** {STUDENT_ID}\n\n"
+        f"**Course Secret:** {COURSE_SECRET}\n\n"
+    )
     # STUDENT: also show Student ID and COURSE_SECRET on the page.
 
     # Use a Hugging Face fine-grained token from Streamlit Cloud secrets
@@ -135,7 +149,7 @@ def main():
         hf_token = st.secrets["HF_TOKEN"]
 
     # STUDENT: load the model with load_model(hf_token)
-    classifier = None
+    classifier = load_model(hf_token)
 
     alert_text = st.text_area(
         "SMS message",
@@ -149,7 +163,20 @@ def main():
     if st.button("Classify SMS"):
         # STUDENT: if the text box is not empty, call classify_text,
         # then show the display label and the confidence.
-        pass
+        if alert_text.strip().__len__() == 0 :
+            #if empty
+            st.write(
+                    f"**Error: Kindly input the SMS message for SMS SPAM Prediction.**"
+                )
+        else:
+            #if not empty and check to output
+            label, confi = classify_text(classifier, alert_text)
+            st.write(
+                    f"**Results:** \n\n"
+                    f"Label: {label.upper()}\n\n"
+                    f"Confidence: {confi:.2%}\n\n"
+                )
+
 
     st.subheader("Test on 100 Hugging Face samples")
     st.write(
@@ -161,8 +188,49 @@ def main():
         # classify_text, then compute_accuracy. Show the accuracy and a
         # results table with at least these columns:
         # # | Text (short) | Ground truth | Prediction | Confidence | Match
-        pass
 
+
+        texts, true_labels = load_test_samples()
+        rows = []
+        labels = []
+
+        for i in range(len(texts)):
+            item = i + 1
+            sample_text = texts[i]
+            ground_truth = true_labels[i]
+            label, confi = classify_text(classifier, sample_text)
+            labels.append(label)
+
+            if len(texts[i]) > 50:
+                short_text = texts[i][:50] + " ..."
+            else:
+                short_text = texts[i]
+            
+            if label == ground_truth:
+                match = "Yes" 
+            else:
+                match = "No"
+
+            rows.append(
+                {
+                    "#": item,
+                    "Text (short)": short_text,
+                    "Ground truth": ground_truth,
+                    "Prediction": label,
+                    "Confidence": f"{confi:.2%}",
+                    "Match": f"{match}",
+                }
+            )
+            
+            
+        accuracy = compute_accuracy(labels, true_labels)
+
+        st.write(
+                f"**Overall Accuracy for {len(texts)} Samples:** \n\n"
+                f"{accuracy:.2%}"
+            )
+
+        st.dataframe(rows)
 
 if __name__ == "__main__":
     main()
